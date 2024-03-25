@@ -80,6 +80,53 @@ double dotProduct(const double* a, const double* b, int N) {
     return result;
 }
 
+// computes y := alpha*x + y
+// x and y are vectors on length N
+// alpha is a scalar
+void axpy(double* y, const double alpha, const double* x, const int N)
+{
+    for (int i = 0; i < N; i++)
+        y[i] += alpha * x[i];
+}
+
+// computes y = x + alpha*(l-r)
+// y, x, l and r are vectors of length N
+// alpha is a scalar
+void addScaledDiff(double* y, const double* x, const double alpha,
+    const double* l, const double* r, const int N)
+{
+    for (int i = 0; i < N; i++)
+        y[i] = x[i] + alpha * (l[i] - r[i]);
+}
+
+// computes y = alpha*(l-r)
+// y, l and r are vectors of length N
+// alpha is a scalar
+void scaleDiff(double* y, const double alpha,
+    const double* l, const double* r, const int N)
+{
+    for (int i = 0; i < N; i++)
+        y[i] = alpha * (l[i] - r[i]);
+}
+
+// computes y := alpha*x
+// alpha is scalar
+// y and x are vectors on length n
+void scale(double* y, const double alpha, double* x, const int N)
+{
+    for (int i = 0; i < N; i++)
+        y[i] = alpha * x[i];
+}
+
+// computes linear combination of two vectors y := alpha*x + beta*z
+// alpha and beta are scalar
+// y, x and z are vectors on length n
+void linearCombination(double* y, const double alpha, double* x, const double beta,
+    const double* z, const int N)
+{
+    for (int i = 0; i < N; i++)
+        y[i] = alpha * x[i] + beta * z[i];
+}
 
 // Conjugate gradient method to solve Ax = b
 void conjugateGradient(const double* A, const double* b, double* x, int N, int maxIterations=150, double tolerance=1e-4) {
@@ -140,7 +187,6 @@ void conjugateGradient(const double* A, const double* b, double* x, int N, int m
     delete[] Ap;
 }
 
-
 void implicitDiffusionMatVecProduct(double* Au, const double* u, const double* D) {
 
     //Allocating matrix and rhs storage
@@ -152,50 +198,45 @@ void implicitDiffusionMatVecProduct(double* Au, const double* u, const double* D
     int nx = parameters::nx; int ny = parameters::ny;
     for (int j = 1; j < parameters::ny - 1; j++) {
         for (int i = 1; i < parameters::nx - 1; i++) {
-
             // Indices
-            int row = j * nx + i;
-            int colp = row;
-            int cole = row + 1;
-            int colw = row - 1;
-            int coln = row + nx;
-            int cols = row - nx;
+            int indp = j * nx + i;
+            int inde = indp + 1;
+            int indw = indp - 1;
+            int indn = indp + nx;
+            int inds = indp - nx;
 
             // Matrix entries
-           
-            Au[row] = \
-                (1 + 0.5 * (D[coln] + D[colp]) * ay + \
-                    0.5 * (D[cols] + D[colp]) * ay + \
-                    0.5 * (D[cole] + D[colp]) * ax + \
-                    0.5 * (D[colw] + D[colp]) * ax) * u[colp] - // P
-                    0.5 * (D[cole] + D[colp]) * ax * u[cole] - // E
-                    0.5 * (D[colw] + D[colp]) * ax * u[colw] - // W
-                    0.5 * (D[coln] + D[colp]) * ay * u[coln] - // N
-                    0.5 * (D[cols] + D[colp]) * ay * u[cols];  // S
-             
-            //Au[row] = 1.0;
+            Au[indp] = (1 + 0.5 * (D[indn] + D[indp]) * ay + \
+                            0.5 * (D[inds] + D[indp]) * ay + \
+                            0.5 * (D[inde] + D[indp]) * ax + \
+                            0.5 * (D[indw] + D[indp]) * ax) * u[indp] - // P
+                            0.5 * (D[inde] + D[indp]) * ax  * u[inde] - // E
+                            0.5 * (D[indw] + D[indp]) * ax  * u[indw] - // W
+                            0.5 * (D[indn] + D[indp]) * ay  * u[indn] - // N
+                            0.5 * (D[inds] + D[indp]) * ay  * u[inds];  // S
         }
     } // End for (Building coeff matrix and rhs)
 
     for (int j = 0; j < ny; j++) {
+
         // left
-        int row = j * nx + 0;
-        int colp = row;
-        Au[row] = u[colp];
+        int indp = j * nx + 0;
+        Au[indp] = u[indp];
+
         // right
-        row = j * nx + (nx - 1);
-        colp = row;
-        Au[row] = u[colp];
+        indp = j * nx + (nx - 1);
+        Au[indp] = u[indp];
     }
+
     for (int i = 0; i < nx; i++) {
+
         // bottom
-        int row = 0 * nx + i;
-        int colp = row;
-        Au[row] = u[colp];
+        int indp = 0 * nx + i;
+        Au[indp] = u[indp];
+
         //top
-        row = (ny - 1) * nx + i;
-        colp = row;
-        Au[row] = u[colp];
+        indp = (ny - 1) * nx + i;
+        Au[indp] = u[indp];
     }
 
 }
@@ -208,9 +249,11 @@ void implicitDiffusionCG(double* u, double* uold, const double* D, int maxIterat
     int ny = parameters::ny;
     int n = nx * ny;
     double* rhs = new double[n];
+
+    // RHS first has the field at the previous timestep
     copyArray(rhs, uold, n);
 
-    // Boundary conditions
+    // RHS also has Boundary conditions
     for (int j = 0; j < ny; j++) {
 
         // left
@@ -246,10 +289,11 @@ void implicitDiffusionCG(double* u, double* uold, const double* D, int maxIterat
     // Compute initial residual r = b - Ax
     implicitDiffusionMatVecProduct(Ap, u, D); // Compute Au
 
-    for (int i = 0; i < n; ++i) {
-        r[i] = rhs[i] - Ap[i];
-        p[i] = r[i]; // Set initial search direction as residual
-    }
+    // r := rhs - Ap
+    linearCombination(r, 1.0, rhs, -1.0, Ap, n);
+
+    // p := r
+    copyArray(p, r, n);
     
     cout << "Starting CG Residual = " << dotProduct(r, r, n) << endl;
     // Main loop of conjugate gradient method
@@ -258,11 +302,11 @@ void implicitDiffusionCG(double* u, double* uold, const double* D, int maxIterat
         implicitDiffusionMatVecProduct(Ap, p, D);
         double alpha = dotProduct(r, r, n) / dotProduct(p, Ap, n); // Compute step size
 
-        // Update solution vector x and residual vector r
-        for (int i = 0; i < n; ++i) {
-            u[i] += alpha * p[i];
-            r[i] -= alpha * Ap[i];
-        }
+        // u := u + alpha*p
+        axpy(u, alpha, p, n);
+
+        // r := r - alpha*Ap
+        axpy(r, -alpha, Ap, n);
 
         //cout << "CG Residual = " << dotProduct(r, r, N) << endl;
         // Check for convergence
@@ -275,10 +319,8 @@ void implicitDiffusionCG(double* u, double* uold, const double* D, int maxIterat
         // Compute beta for next iteration
         double beta = dotProduct(r, r, n) / dotProduct(p, Ap, n);
 
-        // Update search direction vector p
-        for (int i = 0; i < n; ++i) {
-            p[i] = r[i] + beta * p[i];
-        }
+        // p := r + beta*p
+        linearCombination(p, 1.0, r, beta, p, n);
     }
 
     if (iter == maxIterations) {
