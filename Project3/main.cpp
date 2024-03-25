@@ -9,18 +9,18 @@ using namespace std;
 int main() {
 
 	// Main parameters
-	parameters::nx = 100;
-	parameters::ny = 100;
+	parameters::nx = 10;
+	parameters::ny = 10;
 	parameters::dx = 1;
 	parameters::dy = 1;
 	parameters::nt = 10;
-	parameters::dt = 50;
+	parameters::dt = 30;
 
 	// Dirichlet Boundary Values
-	parameters::uLeft = 1.;
-	parameters::uRight = 1.;
-	parameters::uBottom = 1.;
-	parameters::uTop = 1.;
+	parameters::uLeft = 2.5;
+	parameters::uRight = 2.5;
+	parameters::uBottom = 2.5;
+	parameters::uTop = 2.5;
 
 	// Allocating vectors
 	double* u = new double[parameters::nx * parameters::ny];
@@ -40,38 +40,15 @@ int main() {
 		}
 	}
 
-	// Printing Diffusion
-	//print2DArray(D, parameters::nx, parameters::ny, 8);
-	//cout << "===" << endl;
-
 	/*
-	// Testing conjugate gradient
-	int ntest = 5;
-	double* Atest = new double[ntest * ntest];
-	double* btest = new double[ntest];
-	double* Axtest = new double[ntest];
-	double* xtest = new double[ntest];
-	fillArray(Atest, 0.0, ntest * ntest);
-	fillArray(Axtest, 0.0, ntest);
-	fillArray(btest, 1.0, ntest);
-	fillArray(xtest, 0.0, ntest);
-
-	for (int j = 0; j < ntest; j++) {
-		for (int i = 0; i < ntest; i++) {
-			Atest[j * ntest + i] = i + j + 1;
-		}
-	}
-	print2DArray(Atest, ntest, ntest);
-	conjugateGradient(Atest, btest, xtest, ntest);
-
-	print2DArray(xtest, 1, ntest);
-	cout << "--" << endl;
-	matVecProduct(Atest, xtest, Axtest, ntest);
-	print2DArray(Axtest, 1, ntest);
+	int nx = parameters::nx;
+	int ny = parameters::ny;
+	int n = nx * ny;
+	double* Ap = new double[n]; // Matrix-vector product
+	implicitDiffusionMatVecProduct(Ap, u, D);
 	*/
-
+	
 	// Time loop
-	string outFolder = "D:/personal/studies/pdes-modern-cpp-and-cuda/pdes-gpu/out/";
 	double time = 0.0;
 	int n;
 	for (n = 0; n < parameters::nt; n++) {
@@ -81,43 +58,29 @@ int main() {
 		//explicitDiffusion(u, uold, D);
 
 		// Advancing field
-		implicitDiffusion(u, uold, D);
+		//implicitDiffusion(u, uold, D);
 
+		// Advancing field
+		implicitDiffusionCG(u, uold, D);
+		
 		// Printing Array
 		//print2DArray(u, parameters::nx, parameters::ny);
-		cout << "---" << endl;
+		cout << endl << endl;
 
 		// Updating uold
 		copyArray(uold, u, parameters::nx * parameters::ny);
 
-		// Writing binary file
-		/*
-		string prefix = "field_" + to_string(n + 1);
-		writeFieldBinary(u,
-			parameters::nx*parameters::ny,
-			outFolder,
-			prefix);
-			*/
-		// Writing bov file
-		
 	}
+	/**/
 
-	//string prefix = "field_" + to_string(n + 1);
+	string outFolder = "D:/personal/studies/pdes-modern-cpp-and-cuda/pdes-gpu/out/";
 	string prefix = "field_final";
 	string fullpath_bin = outFolder + prefix + ".bin";
 	string fullpath_bov = outFolder + prefix + ".bov";
 	writeScalarFieldToFile(u,
 		parameters::nx, parameters::ny,
 		fullpath_bin.c_str());
-
-	/*
-	writeBOVFile(parameters::nx, parameters::ny,
-		parameters::dx, parameters::dy,
-		(n + 1) * parameters::dt,
-		fullpath_bin.c_str(),
-		fullpath_bov.c_str());
-		*/
-
+	/**/
 
 	
 	return 0;

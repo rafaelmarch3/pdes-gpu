@@ -28,11 +28,16 @@ void copyArray(double* dest, const double* src, int size) {
     }
 }
 
+void print1DArray(double* v, int n, int precision = 4) {
+    for (int j = 0; j < n; j++) {
+        cout << fixed << setprecision(precision) << v[j] << " ";
+    }
+}
+
 void print2DArray(double* v, int nx, int ny, int precision = 4) {
     for (int j = 0; j < ny; j++) {
         for (int i = 0; i < nx; i++) {
             cout << fixed << setprecision(precision) << v[j * nx + i] << " ";
-            //cout << v[j * nx + i] << " ";
         }
         cout << endl;
     }
@@ -55,85 +60,6 @@ void writeScalarFieldToFile(const double* field, int nx, int ny, const char* fil
     file.close();
 }
 
-void writeBOVFile(int nx, int ny, int dx, int dy, double time, const char* dataFileName, const char* bovFileName) {
-    std::ofstream file(bovFileName);
-    if (!file.is_open()) {
-        std::cerr << "Error: Unable to open file " << bovFileName << " for writing." << std::endl;
-        return;
-    }
-
-    file << "TIME: " << time << std::endl;
-    file << "DATA_FILE: " << dataFileName << std::endl;
-    file << "DATA_SIZE: " << nx << " " << ny << " 1" << std::endl;
-    file << "DATA_FORMAT: DOUBLE" << std::endl;
-    file << "VARIABLE: SCALAR" << std::endl;
-    file << "DATA_ENDIAN: LITTLE_ENDIAN" << std::endl;
-    file << "CENTERING: ZONAL" << std::endl;
-    file << "BRICK_ORIGIN: 0. 0. 0." << std::endl;
-    file << "BRICK_SIZE: " << dx << " " << dy << " 1" << std::endl;
-
-
-    /*
-    * TIME: 10.
-DATA_FILE: density.bof
-DATA_SIZE: 10 10 10
-DATA_FORMAT: FLOAT
-VARIABLE: density
-DATA_ENDIAN: LITTLE
-CENTERING: ZONAL
-BRICK_ORIGIN: 0. 0. 0.
-BRICK_SIZE: 10. 10. 10.
-    */
-
-    file.close();
-}
-
-/*
-void writeFieldBOV(double* field,
-                double time,
-                int nx, int ny, int nz,
-                double dx, double dy, double dz,
-                string target_folder, 
-                string prefix) {
-
-    string fullpath_bin = target_folder + prefix + ".bin";
-    string fullpath_bov = target_folder + prefix + ".bov";
-
-    auto myfile = fstream(fullpath_bin,
-        std::ios::out | std::ios::binary);
-    myfile.write((char*)&field[0], nx * ny * nz);
-    myfile.close();
-   
-    //FILE* output = fopen(fullpath_bin.c_str(), "w");
-    //fwrite(field, sizeof(double), nx * ny * nz, output);
-    //fclose(output);
-    
-
-    std::ofstream fid(fullpath_bov.c_str());
-    fid << "TIME: " << to_string(time) << std::endl;
-    fid << "DATA_FILE: " << fullpath_bin << std::endl;
-    fid << "DATA_SIZE: " << nx << " " << ny << " " << nz << std::endl;
-    fid << "DATA_FORMAT: DOUBLE" << std::endl;
-    fid << "VARIABLE: phi" << std::endl;
-    fid << "DATA_ENDIAN: LITTLE" << std::endl;
-    fid << "CENTERING: nodal" << std::endl;
-    fid << "BRICK_SIZE: " << dx << " " << dy << " " << dz << std::endl;
-}
-
-void writeFieldBinary(double* field,
-                    int size,
-                    string target_folder,
-                    string prefix) {
-
-    string fullpath_bin = target_folder + prefix + ".bin";
-    auto myfile = fstream(fullpath_bin,
-        std::ios::out | std::ios::binary);
-    myfile.write((char*)&field[0], size);
-    myfile.close();
-
-}
-*/
-
 // Function to compute the matrix-vector product Ax
 void matVecProduct(const double* A, const double* x, double* Ax, int N) {
     // Perform the matrix-vector product
@@ -154,8 +80,9 @@ double dotProduct(const double* a, const double* b, int N) {
     return result;
 }
 
+
 // Conjugate gradient method to solve Ax = b
-void conjugateGradient(const double* A, const double* b, double* x, int N, int maxIterations=150, double tolerance=1e-8) {
+void conjugateGradient(const double* A, const double* b, double* x, int N, int maxIterations=150, double tolerance=1e-4) {
     double* r = new double[N]; // Residual vector
     double* p = new double[N]; // Search direction vector
     double* Ap = new double[N]; // Matrix-vector product
@@ -172,9 +99,10 @@ void conjugateGradient(const double* A, const double* b, double* x, int N, int m
         p[i] = r[i]; // Set initial search direction as residual
     }
 
-    cout << "CG Residual = " << dotProduct(r, r, N) << endl;
+    cout << "Starting CG Residual = " << dotProduct(r, r, N) << endl;
     // Main loop of conjugate gradient method
-    for (int iter = 0; iter < maxIterations; ++iter) {
+    int iter = 0;
+    for (iter = 0; iter < maxIterations; ++iter) {
         matVecProduct(A, p, Ap, N); // Compute Ap
         double alpha = dotProduct(r, r, N) / dotProduct(p, Ap, N); // Compute step size
 
@@ -184,9 +112,10 @@ void conjugateGradient(const double* A, const double* b, double* x, int N, int m
             r[i] -= alpha * Ap[i];
         }
 
-        cout << "CG Residual = " << dotProduct(r, r, N) << endl;
+        //cout << "CG Residual = " << dotProduct(r, r, N) << endl;
         // Check for convergence
         if (sqrt(dotProduct(r, r, N)) < tolerance) {
+            cout << "Final CG Residual = " << dotProduct(r, r, N) << endl;
             cout << "Convergence achieved after " << iter + 1 << " iterations." << endl;
             break;
         }
@@ -200,10 +129,169 @@ void conjugateGradient(const double* A, const double* b, double* x, int N, int m
         }
     }
 
+    if (iter == maxIterations) {
+        cout << "Final CG Residual = " << dotProduct(r, r, N) << endl;
+        cout << "No Convergence achieved after " << iter << " iterations." << endl;
+    }
+
     // Free allocated memory
     delete[] r;
     delete[] p;
     delete[] Ap;
+}
+
+
+void implicitDiffusionMatVecProduct(double* Au, const double* u, const double* D) {
+
+    //Allocating matrix and rhs storage
+    int n = parameters::nx * parameters::ny;
+
+    // Building coeff matrix and rhs
+    double ay = parameters::dt / (parameters::dy * parameters::dy);
+    double ax = parameters::dt / (parameters::dx * parameters::dx);
+    int nx = parameters::nx; int ny = parameters::ny;
+    for (int j = 1; j < parameters::ny - 1; j++) {
+        for (int i = 1; i < parameters::nx - 1; i++) {
+
+            // Indices
+            int row = j * nx + i;
+            int colp = row;
+            int cole = row + 1;
+            int colw = row - 1;
+            int coln = row + nx;
+            int cols = row - nx;
+
+            // Matrix entries
+           
+            Au[row] = \
+                (1 + 0.5 * (D[coln] + D[colp]) * ay + \
+                    0.5 * (D[cols] + D[colp]) * ay + \
+                    0.5 * (D[cole] + D[colp]) * ax + \
+                    0.5 * (D[colw] + D[colp]) * ax) * u[colp] - // P
+                    0.5 * (D[cole] + D[colp]) * ax * u[cole] - // E
+                    0.5 * (D[colw] + D[colp]) * ax * u[colw] - // W
+                    0.5 * (D[coln] + D[colp]) * ay * u[coln] - // N
+                    0.5 * (D[cols] + D[colp]) * ay * u[cols];  // S
+             
+            //Au[row] = 1.0;
+        }
+    } // End for (Building coeff matrix and rhs)
+
+    for (int j = 0; j < ny; j++) {
+        // left
+        int row = j * nx + 0;
+        int colp = row;
+        Au[row] = u[colp];
+        // right
+        row = j * nx + (nx - 1);
+        colp = row;
+        Au[row] = u[colp];
+    }
+    for (int i = 0; i < nx; i++) {
+        // bottom
+        int row = 0 * nx + i;
+        int colp = row;
+        Au[row] = u[colp];
+        //top
+        row = (ny - 1) * nx + i;
+        colp = row;
+        Au[row] = u[colp];
+    }
+
+}
+
+// Solves implicit diffusion using the CG method
+void implicitDiffusionCG(double* u, double* uold, const double* D, int maxIterations = 150, double tolerance = 1e-4) {
+
+    //Allocating rhs storage
+    int nx = parameters::nx;
+    int ny = parameters::ny;
+    int n = nx * ny;
+    double* rhs = new double[n];
+    copyArray(rhs, uold, n);
+
+    // Boundary conditions
+    for (int j = 0; j < ny; j++) {
+
+        // left
+        int row = j * nx + 0;
+        int colp = row;
+        rhs[row] = parameters::uLeft;
+
+        // right
+        row = j * nx + (nx - 1);
+        colp = row;
+        rhs[row] = parameters::uRight;
+    }
+    for (int i = 0; i < nx; i++) {
+
+        // bottom
+        int row = 0 * nx + i;
+        int colp = row;
+        rhs[row] = parameters::uBottom; // bottom
+
+        //top
+        row = (ny - 1) * nx + i;
+        colp = row;
+        rhs[row] = parameters::uTop; // top
+    }
+
+    double* r = new double[n]; // Residual vector
+    double* p = new double[n]; // Search direction vector
+    double* Ap = new double[n]; // Matrix-vector product
+
+    // Initialize solution vector u with zeros 
+    fillArray(u, 0.0, n);
+
+    // Compute initial residual r = b - Ax
+    implicitDiffusionMatVecProduct(Ap, u, D); // Compute Au
+
+    for (int i = 0; i < n; ++i) {
+        r[i] = rhs[i] - Ap[i];
+        p[i] = r[i]; // Set initial search direction as residual
+    }
+    
+    cout << "Starting CG Residual = " << dotProduct(r, r, n) << endl;
+    // Main loop of conjugate gradient method
+    int iter = 0;
+    for (iter = 0; iter < maxIterations; ++iter) {
+        implicitDiffusionMatVecProduct(Ap, p, D);
+        double alpha = dotProduct(r, r, n) / dotProduct(p, Ap, n); // Compute step size
+
+        // Update solution vector x and residual vector r
+        for (int i = 0; i < n; ++i) {
+            u[i] += alpha * p[i];
+            r[i] -= alpha * Ap[i];
+        }
+
+        //cout << "CG Residual = " << dotProduct(r, r, N) << endl;
+        // Check for convergence
+        if (sqrt(dotProduct(r, r, n)) < tolerance) {
+            cout << "Final CG Residual = " << dotProduct(r, r, n) << endl;
+            cout << "Convergence achieved after " << iter + 1 << " iterations." << endl;
+            break;
+        }
+
+        // Compute beta for next iteration
+        double beta = dotProduct(r, r, n) / dotProduct(p, Ap, n);
+
+        // Update search direction vector p
+        for (int i = 0; i < n; ++i) {
+            p[i] = r[i] + beta * p[i];
+        }
+    }
+
+    if (iter == maxIterations) {
+        cout << "Final CG Residual = " << dotProduct(r, r, n) << endl;
+        cout << "No Convergence achieved after " << iter << " iterations." << endl;
+    }
+
+    // Free allocated memory
+    delete[] r;
+    delete[] p;
+    delete[] Ap;
+    /* */
+
 }
 
 void explicitDiffusion(double* u, double* uold, const double* D) {
