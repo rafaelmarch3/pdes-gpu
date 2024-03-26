@@ -8,23 +8,26 @@ using namespace std;
 // Solve the diffusion equation in 2D
 int main() {
 
+	// Timer variables
+	time_type start, end;
+
 	// Main parameters
-	parameters::nx = 10;
-	parameters::ny = 10;
-	parameters::nz = 10;
+	parameters::nx = 800;
+	parameters::ny = 800;
+	parameters::nz = 800;
 	parameters::dx = 1. / parameters::nx;
 	parameters::dy = 1. / parameters::ny;
 	parameters::dz = 1. / parameters::nz;
 	parameters::nt = 10;
-	parameters::dt = 0.1;
+	parameters::dt = 0.001;
 
 	// Dirichlet Boundary Values
-	parameters::uLeft = 2.5;
-	parameters::uRight = 2.5;
-	parameters::uBottom = 2.5;
-	parameters::uTop = 2.5;
-	parameters::uFront = 2.5;
-	parameters::uBack = 2.5;
+	parameters::uLeft = 1.0;
+	parameters::uRight = 1.0;
+	parameters::uBottom = 1.0;
+	parameters::uTop = 1.0;
+	parameters::uFront = 1.0;
+	parameters::uBack = 1.0;
 
 	// Allocating vectors
 	double* u = new double[parameters::nx * parameters::ny * parameters::nz];
@@ -32,11 +35,14 @@ int main() {
 	double* D = new double[parameters::nx * parameters::ny * parameters::nz];
 
 	// Filling with zeros
+	start = startTimer();
 	fillArray(u, 0.0, parameters::nx * parameters::ny * parameters::nz);
 	fillArray(uold, 0.0, parameters::nx * parameters::ny * parameters::nz);
 	fillArray(D, 0.0, parameters::nx * parameters::ny * parameters::nz);
+	end = endTimer(start, "fillArray");
 
 	// Initializing the diffusion array
+	start = startTimer();
 	double Dconst = 0.1;
 	for (int k = 0; k < parameters::nz; k++) {
 		for (int j = 0; j < parameters::ny; j++) {
@@ -46,6 +52,7 @@ int main() {
 			}
 		}
 	}
+	end = endTimer(start, "Initializing diffusion Array");
 
 	// Time loop
 	double time = 0.0;
@@ -54,7 +61,9 @@ int main() {
 		cout << "Step " << n << endl;
 
 		// Advancing field
+		start = startTimer();
 		implicitDiffusionCG(u, uold, D);
+		end = endTimer(start, "implicitDiffusionCG");
 
 		// Updating uold
 		copyArray(uold, u, parameters::nx * parameters::ny * parameters::nz);

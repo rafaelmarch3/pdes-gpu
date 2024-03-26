@@ -12,8 +12,21 @@
 #include <iostream>
 #include<iomanip>
 #include"parameters.h"
+#include <chrono>
 
 using namespace std;
+using time_type = chrono::steady_clock::time_point;
+
+time_type startTimer() {
+    return chrono::high_resolution_clock::now();
+}
+
+time_type endTimer(time_type start, string operation) {
+    time_type now = chrono::high_resolution_clock::now();
+    auto ms_int = chrono::duration_cast<chrono::milliseconds>(now - start);
+    cout << "Operation " << operation << " took " << ms_int.count() << " milliSeconds." << endl;
+    return now;
+}
 
 
 void fillArray(double* v, double val, int size) {
@@ -132,7 +145,7 @@ void implicitDiffusionMatVecProduct(double* Au, const double* u, const double* D
     double az = parameters::dt / (parameters::dz * parameters::dz);
     int nx = parameters::nx; int ny = parameters::ny; int nz = parameters::nz;
 
-    for (int k = 0; k < nz; k++) {
+    for (int k = 1; k < nz - 1; k++) {
         for (int j = 1; j < ny - 1; j++) {
             for (int i = 1; i < nx - 1; i++) {
                 // Indices
@@ -147,11 +160,11 @@ void implicitDiffusionMatVecProduct(double* Au, const double* u, const double* D
 
                 // Matrix entries
                 Au[indp] = (1 + 0.5 * (D[indn] + D[indp]) * ay + \
-                    0.5 * (D[inds] + D[indp]) * ay + \
-                    0.5 * (D[inde] + D[indp]) * ax + \
-                    0.5 * (D[indw] + D[indp]) * ax + \
-                    0.5 * (D[indf] + D[indp]) * az + \
-                    0.5 * (D[indb] + D[indp]) * az) * u[indp] - // P
+                                0.5 * (D[inds] + D[indp]) * ay + \
+                                0.5 * (D[inde] + D[indp]) * ax + \
+                                0.5 * (D[indw] + D[indp]) * ax + \
+                                0.5 * (D[indf] + D[indp]) * az + \
+                                0.5 * (D[indb] + D[indp]) * az) * u[indp] - // P
                     0.5 * (D[inde] + D[indp]) * ax * u[inde]  - // E
                     0.5 * (D[indw] + D[indp]) * ax * u[indw]  - // W
                     0.5 * (D[indn] + D[indp]) * ay * u[indn]  - // N
@@ -209,10 +222,16 @@ void implicitDiffusionCG(double* u, double* uold, const double* D, int maxIterat
     int n = nx * ny * nz;
     double* rhs = new double[n];
 
+    // Timer variables 
+    time_type start, end;
+
     // RHS first has the field at the previous timestep
+    start = startTimer();
     copyArray(rhs, uold, n);
+    end = endTimer(start, "copyArray");
 
     // RHS also has Boundary conditions
+    start = startTimer();
     for (int k = 0; k < nz; k++) {
         for (int j = 0; j < ny; j++) {
 
@@ -255,49 +274,74 @@ void implicitDiffusionCG(double* u, double* uold, const double* D, int maxIterat
             rhs[row] = parameters::uBack; // back
         }
     }
+    end = endTimer(start, "boundary conditions");
 
     double* r = new double[n]; // Residual vector
     double* p = new double[n]; // Search direction vector
     double* Ap = new double[n]; // Matrix-vector product
-
+ 
     // Initialize solution vector u with zeros 
+    start = startTimer();
     fillArray(u, 0.0, n);
+    end = endTimer(start, "fillArray");
 
     // Compute initial residual r = b - Ax
+    start = startTimer();
     implicitDiffusionMatVecProduct(Ap, u, D); // Compute Au
+    end = endTimer(start, "implicitDiffusionMatVecProduct");
 
     // r := rhs - Ap
+    start = startTimer();
     linearCombination(r, 1.0, rhs, -1.0, Ap, n);
+    end = endTimer(start, "linearCombination");
 
     // p := r
+    start = startTimer();
     copyArray(p, r, n);
+    end = endTimer(start, "copyArray");
 
     cout << "Starting CG Residual = " << dotProduct(r, r, n) << endl;
     // Main loop of conjugate gradient method
     int iter = 0;
     for (iter = 0; iter < maxIterations; ++iter) {
+
+        start = startTimer();
         implicitDiffusionMatVecProduct(Ap, p, D);
+        end = endTimer(start, "implicitDiffusionMatVecProduct");
+
+        start = startTimer();
         double alpha = dotProduct(r, r, n) / dotProduct(p, Ap, n); // Compute step size
+        end = endTimer(start, "dotProduct");
 
         // u := u + alpha*p
+        start = startTimer();
         axpy(u, alpha, p, n);
+        end = endTimer(start, "dotProduct");
 
         // r := r - alpha*Ap
+        start = startTimer();
         axpy(r, -alpha, Ap, n);
+        end = endTimer(start, "axpy");
 
         //cout << "CG Residual = " << dotProduct(r, r, N) << endl;
         // Check for convergence
+        start = startTimer();
         if (sqrt(dotProduct(r, r, n)) < tolerance) {
             cout << "Final CG Residual = " << dotProduct(r, r, n) << endl;
             cout << "Convergence achieved after " << iter + 1 << " iterations." << endl;
             break;
         }
+        end = endTimer(start, "dotProduct");
 
         // Compute beta for next iteration
+        start = startTimer();
         double beta = dotProduct(r, r, n) / dotProduct(p, Ap, n);
+        end = endTimer(start, "dotProduct");
 
         // p := r + beta*p
+        start = startTimer();
         linearCombination(p, 1.0, r, beta, p, n);
+        end = endTimer(start, "linearCombination");
     }
 
     if (iter == maxIterations) {
@@ -309,6 +353,7 @@ void implicitDiffusionCG(double* u, double* uold, const double* D, int maxIterat
     delete[] r;
     delete[] p;
     delete[] Ap;
+    delete[] rhs;
     /* */
 
 }
